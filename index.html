@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>バイオリズム占い</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --text: #22283a;
+    --muted: #667085;
+    --accent: #5b6cff;
+    --good: #22a06b;
+    --warn: #e5a50a;
+    --bad: #d64545;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  h1 {
+    margin: 0 0 8px;
+    font-size: 28px;
+    letter-spacing: .04em;
+  }
+  .lead {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0;
+  }
+  .card {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 6px 20px rgba(31, 41, 55, .08);
+    margin-bottom: 20px;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+    align-items: end;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  input[type="date"] {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #fff;
+  }
+  button {
+    width: 100%;
+    padding: 13px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .2s;
+  }
+  button:hover { opacity: .88; }
+  .hidden { display: none; }
+  .today-label {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .scores {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  .score {
+    border: 1px solid #eaecf0;
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .score-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .score-name { font-weight: 700; }
+  .score-value { font-weight: 800; font-size: 20px; }
+  .bar {
+    height: 10px;
+    background: #eef0f4;
+    border-radius: 999px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #c8ccd4;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width .5s ease;
+  }
+  .state {
+    font-size: 12px;
+    margin-top: 8px;
+    color: var(--muted);
+  }
+  .overall {
+    text-align: center;
+    padding: 18px 12px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #eef1ff, #f7f9ff);
+    margin-bottom: 18px;
+  }
+  .overall-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    margin: 0;
+  }
+  .overall-value {
+    font-size: 34px;
+    font-weight: 800;
+    margin: 4px 0;
+  }
+  .overall-text {
+    font-size: 15px;
+    margin: 0;
+  }
+  .chart-box {
+    position: relative;
+    height: 320px;
+  }
+  h2 {
+    font-size: 18px;
+    margin: 0 0 12px;
+  }
+  .transition-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .transition-list li {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f0f1f4;
+    font-size: 14px;
+  }
+  .transition-list li:last-child { border-bottom: 0; }
+  .tag {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 6px;
+  }
+  .tag-body { background: #ffe9e9; color: #b42318; }
+  .tag-emotion { background: #ffe9f2; color: #c11574; }
+  .tag-intellect { background: #e8f0ff; color: #175cd3; }
+  .advice-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .advice {
+    border: 1px solid #eaecf0;
+    border-radius: 14px;
+    padding: 14px;
+    font-size: 14px;
+  }
+  .advice strong { display: block; margin-bottom: 4px; }
+  .share-box {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  textarea {
+    flex: 1;
+    min-height: 96px;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+  }
+  .secondary {
+    background: #101828;
+  }
+  .notice {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 24px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🌙 バイオリズム占い</h1>
+    <p class="lead">生年月日から身体・感情・知性のリズムを占います</p>
+  </header>
+
+  <section class="card">
+    <div class="form-grid">
+      <div>
+        <label for="birth">生年月日</label>
+        <input type="date" id="birth">
+      </div>
+      <div>
+        <label for="target">占いたい日</label>
+        <input type="date" id="target">
+      </div>
+      <button onclick="calculate()">占う</button>
+    </div>
+  </section>
+
+  <section id="result" class="hidden">
+    <section class="card">
+      <p class="today-label" id="targetLabel"></p>
+
+      <div class="overall">
+        <p class="overall-title">総合バイオリズム</p>
+        <p class="overall-value" id="overallValue"></p>
+        <p class="overall-text" id="overallText"></p>
+      </div>
+
+      <div class="scores">
+        <div class="score">
+          <div class="score-head">
+            <span class="score-name">💪 身体</span>
+            <span class="score-value" id="physicalValue"></span>
+          </div>
+          <div class="bar"><div class="bar-fill" id="physicalBar" style="background:#d64545;"></div></div>
+          <p class="state" id="physicalState"></p>
+        </div>
+        <div class="score">
+          <div class="score-head">
+            <span class="score-name">💖 感情</span>
+            <span class="score-value" id="emotionalValue"></span>
+          </div>
+          <div class="bar"><div class="bar-fill" id="emotionalBar" style="background:#d64545;"></div></div>
+          <p class="state" id="emotionalState"></p>
+        </div>
+        <div class="score">
+          <div class="score-head">
+            <span class="score-name">🧠 知性</span>
+            <span class="score-value" id="intellectualValue"></span>
+          </div>
+          <div class="bar"><div class="bar-fill" id="intellectualBar" style="background:#d64545;"></div></div>
+          <p class="state" id="intellectualState"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>📊 30日間のバイオリズム</h2>
+      <div class="chart-box">
+        <canvas id="biorhythmChart"></canvas>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>⚠️ 今後30日の転換日</h2>
+      <ul class="transition-list" id="transitionList"></ul>
+    </section>
+
+    <section class="card">
+      <h2>🍀 今日のラッキーアクション</h2>
+      <div class="advice-grid" id="adviceGrid"></div>
+    </section>
+
+    <section class="card">
+      <h2>📤 結果をシェア</h2>
+      <div class="share-box">
+        <textarea id="shareText" readonly></textarea>
+        <button class="secondary" onclick="copyShareText()">コピーする</button>
+      </div>
+    </section>
+  </section>
+
+  <section class="card">
+    <p class="notice">
+      ※ バイオリズムは科学的根拠が確立された占術ではありません。結果は娯楽や自己理解の参考としてお楽しみください。体調不良や重要な判断については、専門家や信頼できる情報にもとづいて判断してください。
+    </p>
+  </section>
+
+  <footer>© バイオリズム占い</footer>
+</div>
+
+<script>
+let chart = null;
+
+function formatDate(date) {
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function toLocalDate(value) {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function diffDays(from, to) {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const a = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((b - a) / msPerDay);
+}
+
+function biorhythm(days) {
+  return {
+    physical: Math.round(Math.sin(2 * Math.PI * days / 23) * 100),
+    emotional: Math.round(Math.sin(2 * Math.PI * days / 28) * 100),
+    intellectual: Math.round(Math.sin(2 * Math.PI * days / 33) * 100)
+  };
+}
+
+function getState(value) {
+  if (value >= 50) return { label: '好調', color: '#22a06b' };
+  if (value >= 15) return { label: 'やや好調', color: '#7fc8a9' };
+  if (value > -15) return { label: '転換期かも', color: '#e5a50a' };
+  if (value > -50) return { label: 'やや低調', color: '#f2b8b8' };
+  return { label: '要注意', color: '#d64545' };
+}
+
+function setColor(element, value) {
+  const state = getState(value);
+  element.style.background = state.color;
+  if (value >= 0) {
+    element.style.marginLeft = '50%';
+    element.style.width = `${value / 2}%`;
+  } else {
+    element.style.marginLeft = `${50 + value / 2}%`;
+    element.style.width = `${-value / 2}%`;
+  }
+}
+
+function getAdvice(name, value) {
+  if (value >= 15) {
+    if (name === '身体') return '体を動かすのに向いた日とみられます。散歩、運動、外出などを楽しむとよさそうです。';
+    if (name === '感情') return 'コミュニケーションが弾みやすい日とみられます。大切な人との時間や趣味を楽しみましょう。';
+    return '集中力が高まりやすい日とみられます。学習、読書、計画づくりに取り組むとよさそうです。';
+  }
+  if (value <= -15) {
+    if (name === '身体') return '無理な予定は控えめにして、休息や水分補給を意識する日とみられます。';
+    if (name === '感情') return '感情が揺れやすい日かもしれません。深呼吸や好きな音楽で、心を落ち着けてみましょう。';
+    return '判断を急がず、メモや休憩を取り入れながら丁寧に進めるとよさそうです。';
+  }
+  return '切り替わりの時期とみられます。予定に余裕をもたせ、自分のペースを大切にしましょう。';
+}
+
+function calculate() {
+  const birthValue = document.getElementById('birth').value;
+  const targetValue = document.getElementById('target').value;
+
+  if (!birthValue || !targetValue) {
+    alert('生年月日と占いたい日を入力してください。');
+    return;
+  }
+
+  const birth = toLocalDate(birthValue);
+  const target = toLocalDate(targetValue);
+  const days = diffDays(birth, target);
+
+  if (days < 0) {
+    alert('占いたい日は生年月日以降にしてください。');
+    return;
+  }
+
+  const scores = biorhythm(days);
+  const overall = Math.round((scores.physical + scores.emotional + scores.intellectual) / 3);
+
+  document.getElementById('result').classList.remove('hidden');
+  document.getElementById('targetLabel').textContent =
+    `${formatDate(birth)} 生まれの ${days.toLocaleString()} 日目／${formatDate(target)} のバイオリズム`;
+
+  document.getElementById('physicalValue').textContent = `${scores.physical}%`;
+  document.getElementById('emotionalValue').textContent = `${scores.emotional}%`;
+  document.getElementById('intellectualValue').textContent = `${scores.intellectual}%`;
+
+  setColor(document.getElementById('physicalBar'), scores.physical);
+  setColor(document.getElementById('emotionalBar'), scores.emotional);
+  setColor(document.getElementById('intellectualBar'), scores.intellectual);
+
+  document.getElementById('physicalState').textContent = getState(scores.physical).label;
+  document.getElementById('emotionalState').textContent = getState(scores.emotional).label;
+  document.getElementById('intellectualState').textContent = getState(scores.intellectual).label;
+
+  document.getElementById('overallValue').textContent = `${overall}%`;
+  document.getElementById('overallText').textContent = getAdvice('総合', overall);
+
+  renderChart(birth, target, days);
+  renderTransitions(birth, target, days);
+  renderAdvice(scores);
+  renderShare(target, scores, overall);
+}
+
+function renderChart(birth, target, startDays) {
+  const labels = [];
+  const physical = [];
+  const emotional = [];
+  const intellectual = [];
+
+  for (let i = -2; i <= 29; i++) {
+    const date = new Date(target);
+    date.setDate(target.getDate() + i);
+    const day = diffDays(birth, date);
+    const score = biorhythm(day);
+
+    labels.push(`${date.getMonth() + 1}/${date.getDate()}`);
+    physical.push(score.physical);
+    emotional.push(score.emotional);
+    intellectual.push(score.intellectual);
+  }
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(document.getElementById('biorhythmChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: '身体', data: physical, borderColor: '#d64545', backgroundColor: 'rgba(214,69,69,.12)', tension: .35, pointRadius: 0, borderWidth: 2 },
+        { label: '感情', data: emotional, borderColor: '#d6458f', backgroundColor: 'rgba(214,69,143,.12)', tension: .35, pointRadius: 0, borderWidth: 2 },
+        { label: '知性', data: intellectual, borderColor: '#3b6fe0', backgroundColor: 'rgba(59,111,224,.12)', tension: .35, pointRadius: 0, borderWidth: 2 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: { callbacks: { label: context => `${context.dataset.label}: ${context.parsed.y}%` } }
+      },
+      scales: {
+        y: { min: -100, max: 100, ticks: { callback: value => `${value}%` } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function renderTransitions(birth, target, startDays) {
+  const list = document.getElementById('transitionList');
+  list.innerHTML = '';
+  let count = 0;
+
+  for (let i = 1; i <= 30 && count < 12; i++) {
+    const date = new Date(target);
+    date.setDate(target.getDate() + i);
+    const day = diffDays(birth, date);
+    const current = biorhythm(day);
+    const previous = biorhythm(day - 1);
+
+    const items = [
+      { name: '身体', className: 'tag-body', current: current.physical, previous: previous.physical },
+      { name: '感情', className: 'tag-emotion', current: current.emotional, previous: previous.emotional },
+      { name: '知性', className: 'tag-intellect', current: current.intellectual, previous: previous.intellectual }
+    ];
+
+    items.forEach(item => {
+      if (item.previous * item.current <= 0 && item.previous !== item.current) {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="tag ${item.className}">${item.name}</span>${formatDate(date)}：リズムが切り替わる日とみられます。`;
+        list.appendChild(li);
+        count++;
+      }
+    });
+  }
+
+  if (count === 0) {
+    list.innerHTML = '<li>今後30日以内に転換日は見つかりませんでした。</li>';
+  }
+}
+
+function renderAdvice(scores) {
+  const grid = document.getElementById('adviceGrid');
+  const data = [
+    { name: '身体', value: scores.physical },
+    { name: '感情', value: scores.emotional },
+    { name: '知性', value: scores.intellectual }
+  ];
+
+  grid.innerHTML = data.map(item => `
+    <div class="advice">
+      <strong>${item.name}：${item.value}%</strong>
+      ${getAdvice(item.name, item.value)}
+    </div>
+  `).join('');
+}
+
+function renderShare(target, scores, overall) {
+  const text =
+`🌙 ${formatDate(target)} のバイオリズム占い
+💪 身体：${scores.physical}%
+💖 感情：${scores.emotional}%
+🧠 知性：${scores.intellectual}%
+✨ 総合：${overall}%`;
+
+  document.getElementById('shareText').value = text;
+}
+
+function copyShareText() {
+  const textarea = document.getElementById('shareText');
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value)
+    .then(() => alert('コピーしました。'))
+    .catch(() => document.execCommand('copy'));
+}
+
+document.getElementById('target').valueAsDate = new Date();
+</script>
+</body>
+</html>
